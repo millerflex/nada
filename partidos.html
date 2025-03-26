@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantenedor de Partidos</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-red-700 text-white py-4 shadow-md">
+        <div class="container mx-auto text-center">
+            <h1 class="text-3xl font-bold">Mantenedor de Partidos</h1>
+            <p class="text-sm">Gestiona los partidos de la liga</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto my-8">
+
+        <!-- Selector de Liga -->
+        <section id="selector-liga" class="mb-6">
+            <h2 class="text-2xl font-bold mb-4">Seleccionar Liga</h2>
+            <select id="liga-select" class="w-full px-4 py-2 border rounded-lg">
+                <option value="">Seleccione una liga</option>
+                <!-- Opciones de ligas se cargarán dinámicamente -->
+            </select>
+        </section>
+
+        <!-- Selector de Jornada -->
+        <section id="selector-jornada" class="mb-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Seleccionar Jornada</h2>
+            <select id="jornada-select" class="w-full px-4 py-2 border rounded-lg">
+                <!-- Opciones de jornadas se cargarán dinámicamente -->
+            </select>
+        </section>
+
+        <!-- Partidos de la Jornada -->
+        <section id="partidos-jornada" class="hidden">
+            <h2 class="text-2xl font-bold mb-4">Partidos de la Jornada</h2>
+            <div id="partidos-container" class="space-y-6">
+                <!-- Los partidos se cargarán aquí dinámicamente -->
+            </div>
+            <button id="guardar-resultados" class="bg-red-700 text-white px-6 py-2 rounded-lg mt-4">Guardar Resultados</button>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const ligaSelect = document.getElementById('liga-select');
+            const jornadaSelect = document.getElementById('jornada-select');
+            const selectorJornadaSection = document.getElementById('selector-jornada');
+            const partidosJornadaSection = document.getElementById('partidos-jornada');
+            const partidosContainer = document.getElementById('partidos-container');
+            const guardarResultadosButton = document.getElementById('guardar-resultados');
+
+            let jornadas = [];
+
+            // Cargar ligas
+            const cargarLigas = async () => {
+                const ligasResponse = await axios.get('http://localhost:8085/ligas');
+                ligasResponse.data.forEach(liga => {
+                    const option = document.createElement('option');
+                    option.value = liga.id;
+                    option.textContent = liga.nombre;
+                    ligaSelect.appendChild(option);
+                });
+            };
+
+            // Generar jornadas y partidos
+            const generarJornadas = (equipos) => {
+                const totalEquipos = equipos.length;
+                if (totalEquipos % 2 !== 0) equipos.push({ nombre: "Descanso" }); // Para manejar número impar de equipos
+
+                const totalJornadas = totalEquipos - 1;
+                const jornadasIda = [];
+
+                for (let i = 0; i < totalJornadas; i++) {
+                    const jornada = [];
+
+                    for (let j = 0; j < totalEquipos / 2; j++) {
+                        const equipoLocal = equipos[j];
+                        const equipoVisitante = equipos[totalEquipos - 1 - j];
+
+                        if (equipoLocal.nombre !== "Descanso" && equipoVisitante.nombre !== "Descanso") {
+                            jornada.push({ equipoLocal, equipoVisitante });
+                        }
+                    }
+
+                    jornadasIda.push(jornada);
+
+                    // Rotar los equipos (excepto el primero)
+                    const last = equipos.pop();
+                    equipos.splice(1, 0, last);
+                }
+
+                const jornadasVuelta = jornadasIda.map(jornada =>
+                    jornada.map(partido => ({
+                        equipoLocal: partido.equipoVisitante,
+                        equipoVisitante: partido.equipoLocal,
+                    }))
+                );
+
+                return [...jornadasIda, ...jornadasVuelta];
+            };
+
+            // Cargar jornadas en el selector
+            const cargarJornadasEnSelector = () => {
+                jornadaSelect.innerHTML = '<option value="">Seleccione una jornada</option>';
+                jornadas.forEach((_, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `Jornada ${index + 1}`;
+                    jornadaSelect.appendChild(option);
+                });
+            };
+
+            // Mostrar partidos de la jornada seleccionada
+            const mostrarPartidosDeJornada = async (jornadaIndex) => {
+                partidosContainer.innerHTML = '';
+            
+                // Obtener partidos ya registrados para la jornada
+                const idLiga = ligaSelect.value;
+                const partidosGuardadosResponse = await axios.get(`http://localhost:8085/partidos/jornada`, {
+                    params: { idLiga, jornada: jornadaIndex + 1 }
+                });
+                const partidosGuardados = partidosGuardadosResponse.data;
+            
+                jornadas[jornadaIndex].forEach((partido, index) => {
+                    const partidoGuardado = partidosGuardados.find(
+                        (p) =>
+                            p.equipoLocalId === partido.equipoLocal.id &&
+                            p.equipoVisitanteId === partido.equipoVisitante.id
+                    );
+            
+                    const partidoDiv = document.createElement('div');
+                    partidoDiv.className = 'flex justify-between items-center mb-2';
+            
+                    if (partidoGuardado) {
+                        // Mostrar resultados ya guardados
+                        partidoDiv.innerHTML = `
+                            <div class="text-left">
+                                <p>${partido.equipoLocal.nombre} (${partidoGuardado.golesLocal}) 
+                                vs ${partido.equipoVisitante.nombre} (${partidoGuardado.golesVisitante})</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <input type="number" class="w-12 px-2 py-1 border rounded goles-local" value="${partidoGuardado.golesLocal}" disabled />
+                                <span>-</span>
+                                <input type="number" class="w-12 px-2 py-1 border rounded goles-visitante" value="${partidoGuardado.golesVisitante}" disabled />
+                                <button class="bg-gray-400 text-white px-4 py-2 rounded" disabled>Guardado</button>
+                            </div>
+                        `;
+                    } else {
+                        // Mostrar inputs para guardar resultados
+                        partidoDiv.innerHTML = `
+                            <div class="text-left">
+                                <p>${partido.equipoLocal.nombre} vs ${partido.equipoVisitante.nombre}</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <input type="number" class="w-12 px-2 py-1 border rounded goles-local" placeholder="0" />
+                                <span>-</span>
+                                <input type="number" class="w-12 px-2 py-1 border rounded goles-visitante" placeholder="0" />
+                                <button class="guardar-resultado bg-blue-500 text-white px-4 py-2 rounded" data-index="${index}">Guardar</button>
+                            </div>
+                        `;
+                    }
+            
+                    partidosContainer.appendChild(partidoDiv);
+                });
+            
+                // Evento para guardar resultados
+                document.querySelectorAll('.guardar-resultado').forEach((boton) => {
+                    boton.addEventListener('click', async (e) => {
+                        const index = e.target.dataset.index;
+                        const golesLocal = partidosContainer.querySelectorAll('.goles-local')[index].value || 0;
+                        const golesVisitante = partidosContainer.querySelectorAll('.goles-visitante')[index].value || 0;
+            
+                        const partido = jornadas[jornadaIndex][index];
+            
+                        try {
+                            await axios.post('http://localhost:8085/partidos', {
+                                equipoLocalId: partido.equipoLocal.id,
+                                equipoVisitanteId: partido.equipoVisitante.id,
+                                golesLocal: parseInt(golesLocal),
+                                golesVisitante: parseInt(golesVisitante),
+                                jornada: jornadaIndex + 1,
+                                idliga: idLiga,
+                                fechaPartido: new Date().toISOString().split('T')[0]
+                            });
+            
+                            alert('Resultado guardado correctamente.');
+                            mostrarPartidosDeJornada(jornadaIndex); // Recargar jornada
+                        } catch (error) {
+                            console.error('Error al guardar resultado:', error);
+                            alert('Error al guardar el resultado.');
+                        }
+                    });
+                });
+            
+                partidosJornadaSection.classList.remove('hidden');
+            };
+            
+
+            // Eventos
+            ligaSelect.addEventListener('change', async (event) => {
+                const ligaId = event.target.value;
+                if (!ligaId) {
+                    selectorJornadaSection.classList.add('hidden');
+                    partidosJornadaSection.classList.add('hidden');
+                    return;
+                }
+
+                const equiposResponse = await axios.get(`http://localhost:8085/equipos/filtrar?idLiga=${ligaId}`);
+                const equipos = equiposResponse.data;
+
+                if (equipos.length < 2) {
+                    alert('No hay suficientes equipos para generar jornadas.');
+                    return;
+                }
+
+                jornadas = generarJornadas(equipos);
+                cargarJornadasEnSelector();
+                selectorJornadaSection.classList.remove('hidden');
+            });
+
+            jornadaSelect.addEventListener('change', (event) => {
+                const jornadaIndex = event.target.value;
+                if (jornadaIndex) {
+                    mostrarPartidosDeJornada(jornadaIndex);
+                } else {
+                    partidosJornadaSection.classList.add('hidden');
+                }
+            });
+
+            // Inicializar
+            await cargarLigas();
+        });
+    </script>
+</body>
+</html>

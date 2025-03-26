@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantenedor de Ligas</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <!-- Header -->
+    <header class="bg-green-700 text-white py-4 shadow-md">
+        <div class="container mx-auto text-center">
+            <h1 class="text-3xl font-bold">Mantenedor de Ligas</h1>
+            <p class="text-sm">Gestiona las ligas de fútbol</p>
+        </div>
+    </header>
+
+    <!-- Formulario para agregar una liga -->
+    <section id="form-liga" class="container mx-auto my-8">
+        <h2 class="text-2xl font-bold mb-4">Agregar Nueva Liga</h2>
+        <form id="liga-form" class="bg-white p-6 rounded-lg shadow">
+            <div class="mb-4">
+                <label for="nombre" class="block font-semibold">Nombre de la Liga</label>
+                <input type="text" id="nombre" class="w-full px-4 py-2 border rounded-lg" placeholder="Nombre de la liga" required>
+            </div>
+            <div class="mb-4">
+                <label for="pais" class="block font-semibold">País</label>
+                <input type="text" id="pais" class="w-full px-4 py-2 border rounded-lg" placeholder="País de la liga" required>
+            </div>
+            <div class="mb-4">
+                <button type="submit" class="bg-green-700 text-white px-6 py-2 rounded-lg">Agregar Liga</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Lista de ligas -->
+    <section id="ligas" class="container mx-auto my-8">
+        <h2 class="text-2xl font-bold mb-4">Ligas Registradas</h2>
+        <div id="ligas-container" class="space-y-4">
+            <!-- Aquí se cargarán las ligas dinámicamente -->
+        </div>
+    </section>
+
+    <script>
+        // Función para cargar las ligas desde la API
+        const cargarLigas = async () => {
+            try {
+                const response = await axios.get('http://localhost:8085/ligas');
+                const ligasContainer = document.getElementById('ligas-container');
+                ligasContainer.innerHTML = ''; // Limpiar contenedor antes de agregar nuevas ligas
+
+                response.data.forEach(liga => {
+                    const ligaCard = document.createElement('div');
+                    ligaCard.className = 'bg-white p-4 rounded-lg shadow flex justify-between items-center';
+                    ligaCard.innerHTML = `
+                        <div>
+                            <h3 class="text-lg font-semibold">${liga.nombre}</h3>
+                            <p>País: ${liga.pais}</p>
+                          
+                        </div>
+                        <button class="bg-yellow-500 text-white px-4 py-2 rounded-lg" onclick="editarLiga('${liga.id}')">Editar</button>
+                        <button class="bg-red-500 text-white px-4 py-2 rounded-lg" onclick="eliminarLiga('${liga.id}')">Eliminar</button>
+                    `;
+                    ligasContainer.appendChild(ligaCard);
+                });
+            } catch (error) {
+                console.error('Error al cargar ligas:', error);
+            }
+        };
+
+        // Función para agregar una nueva liga
+        document.getElementById('liga-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const nombre = document.getElementById('nombre').value;
+            const pais = document.getElementById('pais').value;
+
+            try {
+                await axios.post('http://localhost:8085/ligas', {
+                    nombre,
+                    pais,
+                    equiposIds: [] // Agregar equipos según corresponda
+                });
+
+                // Limpiar el formulario y recargar las ligas
+                document.getElementById('liga-form').reset();
+                cargarLigas();
+            } catch (error) {
+                console.error('Error al agregar liga:', error);
+            }
+        });
+
+        // Función para editar una liga (aún sin implementación)
+        const editarLiga = (ligaId) => {
+            alert('Editar liga: ' + ligaId);
+            // Aquí podrías cargar los datos de la liga y permitir al usuario editarla
+        };
+
+        // Función para eliminar una liga
+        const eliminarLiga = async (ligaId) => {
+            try {
+                await axios.delete(`http://localhost:8085/ligas/${ligaId}`);
+                cargarLigas(); // Recargar las ligas después de eliminar
+            } catch (error) {
+                console.error('Error al eliminar liga:', error);
+            }
+        };
+
+        // Cargar las ligas cuando la página esté lista
+        document.addEventListener('DOMContentLoaded', cargarLigas);
+    </script>
+</body>
+</html>

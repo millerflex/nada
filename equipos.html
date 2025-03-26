@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantenedor de Equipos</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-blue-700 text-white py-4 shadow-md">
+        <div class="container mx-auto text-center">
+            <h1 class="text-3xl font-bold">Mantenedor de Equipos</h1>
+            <p class="text-sm">Gestiona los equipos de fútbol</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto my-8">
+
+        <!-- Formulario para Agregar Equipo -->
+        <section id="form-equipo" class="mb-12">
+            <h2 class="text-2xl font-bold mb-4">Agregar Nuevo Equipo</h2>
+            <form id="equipo-form" class="bg-white p-6 rounded-lg shadow">
+                <div class="mb-4">
+                    <label for="nombre" class="block font-semibold">Nombre del Equipo</label>
+                    <input type="text" id="nombre" class="w-full px-4 py-2 border rounded-lg" placeholder="Nombre del equipo" required>
+                </div>
+                <div class="mb-4">
+                    <label for="ciudad" class="block font-semibold">Ciudad</label>
+                    <input type="text" id="ciudad" class="w-full px-4 py-2 border rounded-lg" placeholder="Ciudad del equipo" required>
+                </div>
+                <div class="mb-4">
+                    <label for="estadio" class="block font-semibold">Estadio</label>
+                    <input type="text" id="estadio" class="w-full px-4 py-2 border rounded-lg" placeholder="Estadio del equipo" required>
+                </div>
+                <div class="mb-4">
+                    <label for="entrenador" class="block font-semibold">Entrenador</label>
+                    <input type="text" id="entrenador" class="w-full px-4 py-2 border rounded-lg" placeholder="Entrenador del equipo" required>
+                </div>
+                <div class="mb-4">
+                    <label for="fundado" class="block font-semibold">Año de Fundación</label>
+                    <input type="number" id="fundado" class="w-full px-4 py-2 border rounded-lg" placeholder="Año de fundación" required>
+                </div>
+                <div class="mb-4">
+                    <label for="liga" class="block font-semibold">Liga</label>
+                    <select id="liga" class="w-full px-4 py-2 border rounded-lg" required>
+                        <option value="">Selecciona una liga</option>
+                        <!-- Opciones de ligas se cargarán dinámicamente -->
+                    </select>
+                </div>
+                <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded-lg">Agregar Equipo</button>
+            </form>
+        </section>
+
+        <!-- Tabla de Equipos -->
+        <section id="equipos">
+            <h2 class="text-2xl font-bold mb-4">Equipos Registrados</h2>
+            <div class="mb-4">
+                <label for="filtro-liga" class="block font-semibold">Filtrar por Liga</label>
+                <select id="filtro-liga" class="w-1/3 px-4 py-2 border rounded-lg">
+                    <option value="">Todas las Ligas</option>
+                    <!-- Opciones de ligas se cargarán dinámicamente -->
+                </select>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full bg-white rounded-lg shadow-md">
+                    <thead class="bg-blue-700 text-white">
+                        <tr>
+                            <th class="p-4 text-left">Equipo</th>
+                            <th class="p-4 text-left">Ciudad</th>
+                            <th class="p-4">Opciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="equipos-container">
+                        <!-- Los equipos se cargarán aquí dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Obtener datos de ligas y equipos
+                const ligasResponse = await axios.get('http://localhost:8085/ligas');
+                const equiposResponse = await axios.get('http://localhost:8085/equipos');
+                const ligaSelect = document.getElementById('liga');
+                const filtroLiga = document.getElementById('filtro-liga');
+                const equiposContainer = document.getElementById('equipos-container');
+
+                // Cargar ligas en el formulario y el filtro
+                ligasResponse.data.forEach(liga => {
+                    const option = document.createElement('option');
+                    option.value = liga.id;
+                    option.textContent = liga.nombre;
+                    ligaSelect.appendChild(option);
+
+                    const filtroOption = document.createElement('option');
+                    filtroOption.value = liga.id;
+                    filtroOption.textContent = liga.nombre;
+                    filtroLiga.appendChild(filtroOption);
+                });
+
+                // Cargar equipos en la tabla
+                const cargarEquipos = (ligaId = '') => {
+                    equiposContainer.innerHTML = ''; // Limpiar tabla
+
+                    const equiposFiltrados = ligaId
+                        ? equiposResponse.data.filter(equipo => equipo.idLiga == ligaId)
+                        : equiposResponse.data;
+
+                    equiposFiltrados.forEach(equipo => {
+                        const row = document.createElement('tr');
+                        row.className = 'border-b';
+                        row.innerHTML = `
+                            <td class="p-4 text-left">${equipo.nombre}</td>
+                            <td class="p-4 text-left">${equipo.ciudad}</td>
+                            <td class="p-4 text-center">
+                                <button class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600">Editar</button>
+                                <button class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Eliminar</button>
+                            </td>
+                        `;
+                        equiposContainer.appendChild(row);
+                    });
+                };
+
+                // Inicializar tabla con todos los equipos
+                cargarEquipos();
+
+                // Filtrar equipos por liga
+                filtroLiga.addEventListener('change', (event) => {
+                    cargarEquipos(event.target.value);
+                });
+
+                // Manejar envío del formulario
+                document.getElementById('equipo-form').addEventListener('submit', async (event) => {
+                    event.preventDefault();
+
+                    const nombre = document.getElementById('nombre').value.trim();
+                    const ciudad = document.getElementById('ciudad').value.trim();
+                    const estadio = document.getElementById('estadio').value.trim();
+                    const entrenador = document.getElementById('entrenador').value.trim();
+                    const fundado = document.getElementById('fundado').value.trim();
+                    const idLiga = document.getElementById('liga').value;
+
+                    if (!idLiga) {
+                        alert('Por favor selecciona una liga.');
+                        return;
+                    }
+
+                    try {
+                        await axios.post('http://localhost:8085/equipos', {
+                            nombre,
+                            ciudad,
+                            estadio,
+                            entrenador,
+                            fundado: parseInt(fundado),
+                            idLiga: parseInt(idLiga),
+                        });
+
+                        alert('Equipo agregado correctamente.');
+                        window.location.reload(); // Recargar la página
+                    } catch (error) {
+                        console.error('Error al agregar equipo:', error);
+                        alert('Error al agregar equipo. Revisa los datos e intenta nuevamente.');
+                    }
+                });
+            } catch (error) {
+                console.error('Error al cargar datos:', error);
+            }
+        });
+    </script>
+</body>
+</html>
